@@ -42,10 +42,15 @@ defmodule Instructor.Adapters.OpenAI do
                     String.starts_with?(line, "data: {")
                   end)
                   |> Enum.map(fn line ->
-                    line
-                    |> String.replace_prefix("data: ", "")
-                    |> Jason.decode!()
+                    line = line |> String.replace_prefix("data: ", "")
+
+                    try do
+                      line |> Jason.decode!()
+                    rescue
+                      _ -> nil
+                    end
                   end)
+                  |> Enum.filter(&(not is_nil(&1)))
 
                 for chunk <- chunks do
                   send(pid, chunk)
@@ -62,12 +67,14 @@ defmodule Instructor.Adapters.OpenAI do
       fn task ->
         receive do
           :done ->
+            IO.inspect("done task")
             {:halt, task}
 
           data ->
             {[data], task}
         after
           15_000 ->
+            IO.inspect("timeout task after 15s")
             {:halt, task}
         end
       end,
